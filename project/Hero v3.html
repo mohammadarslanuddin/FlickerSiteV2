@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Flicker — Learn smarter, in minutes</title>
+<link rel="stylesheet" href="flicker/colors_and_type.css" />
+<style>
+  :root {
+    /* Active theme — overridden by Tweaks panel */
+    --bg: var(--flicker-canvas);
+    --bg-rgb: 255, 249, 236;
+    --ink: var(--flicker-body);
+    --ink-rgb: 34, 25, 27;
+    --ink-soft: var(--flicker-ink-soft);
+    --ink-muted: var(--flicker-ink-mute);
+    --rule: var(--flicker-canvas-shade);
+    --brick: var(--flicker-brick);
+    --brick-rgb: 193, 52, 65;
+    --brick-hover: #A82934;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  html { background: var(--bg); }
+  body {
+    font-family: var(--font-sans);
+    color: var(--ink);
+    background: var(--bg);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+    overflow-x: hidden;
+  }
+  a { color: inherit; text-decoration: none; }
+  #root { min-height: 100vh; }
+
+  /* ---------- ScrollSmoother wrapper ----------
+     ScrollSmoother needs a wrapper + content pair. We let it manage the
+     scroll itself; #smooth-wrapper is the viewport, #smooth-content is what
+     actually scrolls inside it. */
+  #smooth-wrapper {
+    position: fixed;
+    inset: 0;
+    overflow: hidden;
+  }
+
+  /* ---------- CTA buttons (Flicker DS — updated spec) ----------
+     primary  → body color filled (was brick previously; brick is now a
+                separate 'brand' variant reserved for signature moments)
+     secondary → paper fill with inset hairline border that drops on hover
+     brand    → brick fill (kept available; not used in this hero)
+  */
+  .cta {
+    display: inline-flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 28px;
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: -0.005em;
+    text-decoration: none;
+    border-radius: var(--radius-full);
+    border: none;
+    /* Transform is driven by GSAP (see hero-v3.jsx); CSS transitions cover
+       the color/border/shadow side so they stay theme-aware. */
+    transition: background-color var(--dur-base) var(--ease-out),
+                color var(--dur-base) var(--ease-out),
+                box-shadow var(--dur-base) var(--ease-out),
+                border-color var(--dur-base) var(--ease-out);
+    will-change: transform;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1;
+  }
+  .cta-arrow {
+    display: inline-flex;
+    align-items: center;
+    /* arrow slide is driven by GSAP — see hero-v3.jsx */
+  }
+
+  /* Primary — body color fill */
+  .cta-primary {
+    background: var(--flicker-body);
+    color: var(--flicker-canvas);
+  }
+  .cta-primary:hover {
+    background: var(--flicker-ink-soft);
+  }
+
+  /* Secondary — paper fill, inset hairline that lifts on hover */
+  .cta-secondary {
+    background: var(--flicker-paper);
+    color: var(--flicker-body);
+    box-shadow: inset 0 0 0 1px var(--flicker-canvas-shade);
+  }
+  .cta-secondary:hover {
+    background: var(--flicker-canvas-soft);
+    box-shadow: none;
+  }
+
+  /* Brand — brick fill, reserved for signature moments */
+  .cta-brand {
+    background: var(--flicker-brick);
+    color: var(--flicker-canvas);
+  }
+  .cta-brand:hover {
+    background: #A82934;
+  }
+
+  /* ---------- Pause/Play toggle ---------- */
+  .play-toggle {
+    background: rgba(var(--bg-rgb), 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    border: 1px solid var(--rule);
+    color: var(--ink);
+    padding: 9px 14px 9px 12px;
+    border-radius: var(--radius-full);
+    transition:
+      border-color var(--dur-base) var(--ease-out),
+      background var(--dur-base) var(--ease-out);
+    cursor: pointer;
+    font-family: var(--font-sans);
+    font-size: var(--text-xs);
+    font-weight: 500;
+    letter-spacing: 0.01em;
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .play-toggle:hover {
+    border-color: var(--ink);
+    background: rgba(var(--bg-rgb), 0.85);
+  }
+
+  /* ---------- Nav links ---------- */
+  .nav-link {
+    font-family: var(--font-sans);
+    font-size: var(--text-sm);
+    font-weight: 500;
+    color: var(--ink);
+    transition: color var(--dur-base) var(--ease-out);
+  }
+  .nav-link:hover { color: var(--brick); }
+
+  /* ---------- Badges (from Flicker DS component-badges) ----------------- */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--font-sans);
+    font-size: 12px;
+    font-weight: 500;
+    padding: 4px 10px;
+    border-radius: 9999px;
+    line-height: 1;
+    text-transform: none;
+    letter-spacing: 0;
+  }
+  .badge svg { width: 12px; height: 12px; }
+  /* Badge variants. The icon-friendly variants use lighter background
+     tints — keep the heavier .badge-new for label-only badges. */
+  .badge-cat    { background: #FFFEFB; color: #3D3034; box-shadow: inset 0 0 0 1px #ECDFC4; }
+  .badge-new    { background: #C13441; color: #FFFEFB; }
+  .badge-saved  { background: #4F7A5220; color: #2F5532; }
+  .badge-pop    { background: #E07A4830; color: #8A3D14; }
+  .badge-time   { background: transparent; color: #7A6B6F; box-shadow: inset 0 0 0 1px #ECDFC4; }
+  .badge-streak { background: #C99A2E25; color: #6A4F0B; }
+
+  /* ---------- Genres section ---------- */
+  .genres-section {
+    position: relative;
+    background: var(--bg);   /* match the hero/page tone (paper by default) */
+    color: var(--flicker-body);
+    overflow: hidden;
+  }
+  .genres-inner {
+    position: relative;
+    min-height: 100vh;
+    /* Heading hugs the top, rows are pushed to the bottom (margin-top:auto
+       on .genres-rows), so when the section pins both fit inside one
+       viewport with breathing space between. */
+    padding: 64px 0 64px 0;
+    display: flex;
+    flex-direction: column;
+  }
+  .genres-heading {
+    padding: 0 36px;
+    max-width: 1100px;
+  }
+  .genres-rows {
+    margin-top: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 0;     /* rows sit flush together for a tight editorial stack */
+  }
+  .genre-row {
+    position: relative;
+    /* No overflow:hidden — track flows naturally; section overflow clips
+       only at the viewport edges. */
+    width: 100%;
+  }
+  .genre-track {
+    display: inline-block;
+    white-space: nowrap;
+    will-change: transform;
+    /* Common style for all four rows — same weight, same style, same color. */
+    font-family: var(--font-serif-display);
+    font-weight: 900;
+    font-style: normal;
+    font-size: clamp(64px, 9.2vw, 156px);
+    line-height: 1;
+    letter-spacing: -0.03em;
+    color: var(--flicker-canvas-shade);
+  }
+
+  /* ---------- Stacked book avatars (in the bottom-left tagline) ---------- */
+  .stat-stack {
+    display: inline-flex;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .stat-stack-cover {
+    width: 14px;
+    height: 20px;
+    object-fit: cover;
+    border-radius: 4px;
+    border: 1.5px solid var(--flicker-paper);
+    background: var(--flicker-canvas-shade);
+    box-shadow: 0 1px 3px rgba(34,25,27,0.25);
+    flex-shrink: 0;
+    display: block;
+  }
+  .stat-stack-cover + .stat-stack-cover { margin-left: -6px; }
+
+  /* ---------- Book of the week card ----------
+     Sits above the bottom-left tagline. Quiet warm canvas-soft surface, no
+     shadow, hairline border \u2014 a piece of static editorial chrome, not a
+     popover. Image is sized in proportion to the text column so neither
+     dominates. */
+  .book-card-wrap {
+    position: absolute;
+    /* Outer edge of the card aligns with the logo above and the tagline
+       below. Internal padding keeps the cover image slightly inset, which
+       is the expected card behavior. */
+    left: 36px;
+    bottom: 64px;
+    z-index: 26;
+    width: 296px;
+    max-width: calc(100vw - 72px);
+  }
+  /* Lift wrapper — contains both the card link and the × button so the
+     hover animation moves them as a unit. Shadow toggles on .is-lifted. */
+  .book-card-lift {
+    position: relative;
+    border-radius: var(--radius-md);
+    will-change: transform;
+  }
+  .book-card-lift .book-card {
+    transition: background var(--dur-base) var(--ease-out),
+                border-color var(--dur-base) var(--ease-out),
+                box-shadow var(--dur-base) var(--ease-out);
+  }
+  .book-card-lift.is-lifted .book-card {
+    box-shadow: var(--shadow-sm);
+  }
+  .book-card {
+    position: relative;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 32px 10px 10px;
+    background: var(--flicker-canvas-soft);
+    border: 1px solid var(--flicker-canvas-shade);
+    border-radius: var(--radius-md);
+    text-decoration: none;
+    color: var(--flicker-body);
+    will-change: transform;
+  }
+  /* Hover surface tone is owned by the lift wrapper now — see .book-card-lift
+     above. Shadow is also added on .is-lifted. */
+  .book-card-wrap:hover .book-card {
+    background: var(--flicker-paper);
+    border-color: var(--flicker-ink-mute);
+  }
+  .book-card-cover {
+    width: 38px;
+    height: 56px;
+    flex-shrink: 0;
+    object-fit: cover;
+    border-radius: 3px;
+    background: var(--flicker-canvas-shade);
+  }
+  .book-card-text {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+    min-width: 0;
+  }
+  .book-card-badge {
+    display: inline-flex;
+    align-self: flex-start;
+    align-items: center;
+    font-family: var(--font-sans);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 3px 7px;
+    border-radius: var(--radius-full);
+    background: var(--flicker-misty-rose);
+    color: var(--flicker-cosmos);
+    line-height: 1;
+    margin-bottom: 2px;
+  }
+  .book-card-title {
+    font-family: var(--font-serif);
+    font-size: 14px;
+    font-weight: 500;
+    line-height: 1.2;
+    color: var(--flicker-body);
+    letter-spacing: -0.01em;
+    margin: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  .book-card-meta {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--font-sans);
+    font-size: 11px;
+    font-weight: 400;
+    color: var(--flicker-ink-mute);
+    line-height: 1.3;
+  }
+  .book-card-meta-dot {
+    width: 3px;
+    height: 3px;
+    border-radius: 50%;
+    background: currentColor;
+    opacity: 0.55;
+    flex-shrink: 0;
+  }
+  .book-card-genre {
+    font-style: italic;
+  }
+  .book-card-dismiss {
+    position: absolute;
+    top: 6px;
+    right: 6px;
+    width: 20px;
+    height: 20px;
+    padding: 0;
+    border-radius: 50%;
+    border: none;
+    background: transparent;
+    color: var(--flicker-ink-mute);
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: background var(--dur-base) var(--ease-out),
+                color var(--dur-base) var(--ease-out);
+  }
+  .book-card-dismiss:hover {
+    background: var(--flicker-canvas-shade);
+    color: var(--flicker-body);
+  }
+
+  /* ---------- Headline SplitText layout ---------- */
+  .headline-rotator {
+    display: inline-block;
+    perspective: 600px;
+    /* Keep the second line locked to a stable width so layout doesn't jitter
+       as text swaps. */
+    min-width: 9ch;
+  }
+  .headline-rotator .char {
+    display: inline-block;
+    will-change: transform, opacity;
+  }
+</style>
+</head>
+<body class="flicker-root">
+
+<div id="smooth-wrapper">
+  <div id="smooth-content">
+    <div id="root"></div>
+  </div>
+</div>
+
+<script type="application/json" id="tweak-defaults">
+/*EDITMODE-BEGIN*/{
+  "tone": "paper",
+  "speed": 0.5,
+  "density": 10,
+  "spread": 1.8,
+  "cardSize": 0.4,
+  "showCounter": true,
+  "showPlateLabels": true,
+  "perspective": "flat"
+}/*EDITMODE-END*/
+</script>
+
+<script src="https://unpkg.com/react@18.3.1/umd/react.development.js" integrity="sha384-hD6/rw4ppMLGNu3tX5cjIb+uRZ7UkRJ6BPkLpg4hAu/6onKUg4lLsHAs9EBPT82L" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/react-dom@18.3.1/umd/react-dom.development.js" integrity="sha384-u6aeetuaXnQ38mYT8rp6sbXaQe3NL9t+IBXmnYxwkUI2Hw4bsp2Wvmx4yRQF1uAm" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/@babel/standalone@7.29.0/babel.min.js" integrity="sha384-m08KidiNqLdpJqLq95G/LEi8Qvjl/xUYll3QILypMoQ65QorJ9Lvtp2RXYGBFj1y" crossorigin="anonymous"></script>
+<script src="https://unpkg.com/gsap@3.12.5/dist/gsap.min.js"></script>
+<script src="https://unpkg.com/gsap@3.12.5/dist/ScrollTrigger.min.js"></script>
+<script src="https://unpkg.com/lucide@latest/dist/umd/lucide.min.js"></script>
+<!-- Club GSAP plugin (ScrollSmoother). Trial CDN \u2014 for production swap with
+     your licensed copy. SplitText is omitted intentionally; we use a tiny
+     hand-rolled char splitter instead since the demo CDN serves an
+     incompatible build. -->
+<script src="https://assets.codepen.io/16327/ScrollSmoother.min.js"></script>
+
+<script type="text/babel" src="tweaks-panel.jsx"></script>
+<script type="text/babel" src="hero-v3.jsx"></script>
+<script type="text/babel" src="genres-section.jsx"></script>
+<script type="text/babel" src="app-v3.jsx"></script>
+</body>
+</html>
