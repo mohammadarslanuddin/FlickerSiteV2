@@ -764,7 +764,6 @@ function HeroV3({ tweaks }) {
         </div>
       </div>
       }
-      }
 
       {/* ---------- Bottom-right scroll indicator (replaces pause button) -- */}
       <div
